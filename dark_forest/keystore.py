@@ -149,7 +149,7 @@ class KeyStore:
         self._accounts = []
         # First save: need password + fresh salt to build KDF metadata
         salt = os.urandom(_ARGON2_SALT_LEN)
-        self._cache_key = _derive_key(pw, salt)
+        self._cache_key = bytearray(_derive_key(pw, salt))
         plain = json.dumps(self._accounts, separators=(",", ":"))
         nonce = os.urandom(_AES_NONCE_LEN)
         ct = AESGCM(self._cache_key).encrypt(nonce, plain.encode("utf-8"), None)
@@ -187,13 +187,21 @@ class KeyStore:
         kdf_info = container["kdf"]
         salt = base64.b64decode(kdf_info["salt"])
         # Derive and cache key (not password)
-        self._cache_key = _derive_key(pw, salt)
+        self._cache_key = bytearray(_derive_key(pw, salt))
         self._load_with_cache(container)  # decrypt using cached key
 
     def lock(self) -> None:
-        """Clear all decrypted keys and cached key from memory."""
-        self._accounts = None
+        """Clear all decrypted keys and cached key from memory.
+
+        Overwrites the in-memory key buffer before releasing the reference.
+        Best-effort: Python strings are immutable but the derived key buffer
+        is explicitly zeroed.
+        """
+        # Zero the derived key buffer
+        if self._cache_key is not None:
+            self._cache_key[:] = b"\x00" * len(self._cache_key)
         self._cache_key = None
+        self._accounts = None
 
     @property
     def unlocked(self) -> bool:
