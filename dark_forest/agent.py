@@ -160,7 +160,18 @@ class DarkForestAgent:
             raise ValueError(f"Unknown contract '{contract}'. Available: {list(self._contracts.keys())}")
 
         args = args or []
-        data = c.encodeABI(fn_name=func, args=args)
+        try:
+            data = c.encodeABI(fn_name=func, args=args)
+        except Exception as e:
+            overloads = [f for f in (c.abi or []) if f.get("name") == func and f.get("type") == "function"]
+            sigs = []
+            for o in overloads:
+                types = ",".join(i.get("type", "?") for i in o.get("inputs", []))
+                sigs.append(f"{o['name']}({types})")
+            raise ValueError(
+                f"ABI mismatch: {contract}.{func} — "
+                f"expected one of: {', '.join(sigs) if sigs else 'NOT IN ABI'}"
+            ) from e
 
         if self._signing_mode == "signer":
             result = self._signer_post("/sign-and-send", {

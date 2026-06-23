@@ -84,6 +84,11 @@ def main():
     check(a0.read("game", "totalCivilizations") == N, f"total = {N}")
     check(a0.read("game", "activeCivilizationCount") == N, f"active = {N}")
 
+    # State assertions
+    civ0 = a0.get_civilization(addrs[0])
+    check(civ0["exists"], f"civ0 exists after create")
+    check(civ0["energy"] == 2000, f"civ0 energy = {civ0['energy']} (expected 2000)")
+
     # ═══ Batch Reads ═══
     print(f"\n═══ Batch Reads ═══\n")
     ss = a0.get_simple_statuses(addrs)
@@ -124,6 +129,10 @@ def main():
     for a in agents:
         r = a.execute("game", "collectEnergy")
         check(r.get("status") == 1, "collect")
+
+    # P3#13: State assertion — energy increased after collect
+    e_after = a0.get_civilization(addrs[0])["energy"]
+    check(e_after > 2000, f"energy = {e_after} (>2000 after 4000s)")
 
     # ═══ Approve DFT for operations ═══
     print(f"\n═══ DFT Approve ═══\n")
@@ -166,7 +175,7 @@ def main():
     print(f"  Energy before jump: {e_before}")
     r = agents[0].execute("game", "spaceJump")
     check(r.get("status") == 1, "spaceJump")
-    check(a0.get_jump_count(addrs[0]) >= 1, f"jump count = {a0.get_jump_count(addrs[0])}")
+    check(a0.get_jump_count(addrs[0]) >= 1, f"jump count = {a0.get_jump_count(addrs[0])} (P3#13 state assert)")
     # trackingJump — check if target in range first
     in_range = a0.is_in_range(addrs[0], addrs[5])
     if in_range:
@@ -205,7 +214,9 @@ def main():
     # Transfer DFT to account 1 for market testing
     r = agents[0].execute("token", "transfer", [addrs[1], 1000 * 10**18])
     check(r.get("status") == 1, "transfer DFT to a1")
-    check(a0.token_balance(addrs[1]) >= 1000 * 10**18, "a1 got DFT")
+    # P3#13: verify receiver got tokens
+    bal_a1 = a0.token_balance(addrs[1])
+    check(bal_a1 >= 1000 * 10**18, f"a1 got DFT: {bal_a1 / 1e18}")
 
     # ═══ Upgrade (account 0) ═══
     print(f"\n═══ Upgrade ═══\n")
@@ -217,6 +228,10 @@ def main():
         try: agents[0].execute("game", "upgradeSystem", [sys_id])
         except: pass
     check(True, f"upgrade all 5 systems called")
+    # P3#13: verify at least collector leveled up
+    civ_up = a0.get_civilization(addrs[0])
+    check(civ_up["energyCollectorLv"] >= 2,
+          f"collector lv = {civ_up['energyCollectorLv']} (≥2 after upgrade)")
 
     # ═══ Energy Market ═══
     print(f"\n═══ Energy Market ═══\n")
