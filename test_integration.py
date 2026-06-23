@@ -142,16 +142,22 @@ def main():
         check(True, f"getBattleHistory = {len(bh)} records")
     except Exception as e:
         check(True, f"getBattleHistory (skipped ABI issue): {str(e)[:60]}")
-    # Shield may be full — that's OK
-    try: agents[0].execute("game", "repairShield", [100])
-    except: pass
-    check(True, "repairShield (may be full)")
+    # ── Shield operations: query then act ──
+    shp = a0.get_shield_hp(addrs[0])
+    if shp["current"] < shp["max"]:
+        r = agents[0].execute("game", "repairShield", [100])
+        check(r.get("status") == 1, "repairShield (needed)")
+    else:
+        check(True, "repairShield skipped (shield full)")
     r = agents[0].execute("game", "regenShield")
     check(r.get("status") == 1, "regenShield")
-    # assistShieldRepair / claimCombatEnergy (may fail if no alliance / no combat)
-    try: agents[0].execute("game", "claimCombatEnergy")
-    except: pass
-    check(True, "claimCombatEnergy (may have no pending)")
+    # claimCombatEnergy — check pending
+    pending = a0.get_pending_combat_energy(addrs[0])
+    if pending > 0:
+        r = agents[0].execute("game", "claimCombatEnergy")
+        check(r.get("status") == 1, f"claimCombatEnergy ({pending})")
+    else:
+        check(True, "claimCombatEnergy skipped (no pending)")
 
     # ═══ Movement ═══
     print(f"\n═══ Movement ═══\n")
@@ -161,10 +167,13 @@ def main():
     r = agents[0].execute("game", "spaceJump")
     check(r.get("status") == 1, "spaceJump")
     check(a0.get_jump_count(addrs[0]) >= 1, f"jump count = {a0.get_jump_count(addrs[0])}")
-    # trackingJump may need nearby target + radar
-    try: agents[0].execute("game", "trackingJump", [addrs[5]])
-    except: pass
-    check(True, "trackingJump (may be out of range)")
+    # trackingJump — check if target in range first
+    in_range = a0.is_in_range(addrs[0], addrs[5])
+    if in_range:
+        r = agents[0].execute("game", "trackingJump", [addrs[5]])
+        check(r.get("status") == 1, "trackingJump (target in range)")
+    else:
+        check(True, "trackingJump skipped (target out of range)")
     # startMove to nearby coordinates
     cur_pos = a0.get_position(addrs[0])["position"]
     r = agents[0].execute("game", "startMove", [
@@ -222,15 +231,22 @@ def main():
     check(isinstance(om, int), f"getOrderCount = {om}")
     orders = a0.read("market", "getActiveOrders", [0, 10])
     check(len(orders) >= 1, f"getActiveOrders = {len(orders)} orders")
-    # Fill order by iterating to find correct ID
-    try: agents[1].execute("market", "fillOrder", [1])
-    except: pass
-    check(True, "fillOrder attempted")
-    # Cancel remaining by trying IDs
-    for oid in range(3):
+    # Fill order — find an active order ID
+    filled = False
+    for oid in range(5):
+        try:
+            r = agents[1].execute("market", "fillOrder", [oid])
+            if r.get("status") == 1:
+                filled = True
+                break
+        except Exception:
+            continue
+    check(True, f"fillOrder {'succeeded' if filled else 'no valid order found'}")
+    # Cancel orders (only owner can cancel their own)
+    for oid in range(5):
         try: agents[0].execute("market", "cancelOrder", [oid])
-        except: pass
-    check(True, "cancelOrder attempted")
+        except Exception: pass
+    check(True, "cancelOrders attempted")
     try: a0.execute("market", "withdrawDftFees")
     except: pass
     check(True, "withdrawDftFees attempted")
@@ -245,16 +261,21 @@ def main():
     check(r.get("status") == 1, "joinAlliance")
     r = agents[2].execute("alliance", "joinAlliance", [aid])
     check(r.get("status") == 1, "joinAlliance a2")
-    # assistShieldRepair (alliance feature — may fail if shield full)
-    try: agents[0].execute("game", "assistShieldRepair", [addrs[1], 50])
-    except: pass
-    check(True, "assistShieldRepair attempted")
+    # assistShieldRepair — check target shield first
+    tgt_shield = a0.get_shield_hp(addrs[1])
+    if tgt_shield["current"] < tgt_shield["max"]:
+        r = agents[0].execute("game", "assistShieldRepair", [addrs[1], 50])
+        check(r.get("status") == 1, "assistShieldRepair")
+    else:
+        check(True, "assistShieldRepair skipped (target shield full)")
     # kick + leave
     r = agents[0].execute("alliance", "kickMember", [aid, addrs[2]])
     check(r.get("status") == 1, "kickMember")
-    try: agents[1].execute("alliance", "leaveAlliance", [aid])
+    # leaveAlliance — approve alliance contract for DFT burn
+    try: agents[1].execute("token", "approve", [ALLIANCE, 2**256 - 1])
     except: pass
-    check(True, "leaveAlliance attempted")
+    r = agents[1].execute("alliance", "leaveAlliance", [aid])
+    check(r.get("status") == 1, "leaveAlliance")
     # claim refund
     try: agents[1].execute("alliance", "claimRefund")
     except: pass  # may or may not have refund
@@ -294,9 +315,10 @@ def main():
 
     # ═══ batchTransferAndBurn ═══
     print(f"\n═══ batchTransferAndBurn ═══\n")
-    try: agents[0].execute("game", "batchTransferAndBurn", [addrs[3], addrs[4], 500, 100])
-    except: pass
-    check(True, "batchTransferAndBurn attempted")
+    # batchTransferAndBurn — need agent 3 to approve agent 0 (or proxy)
+    r = agents[3].execute("game", "approveEnergy", [addrs[0], 10000])
+    r = agents[0].execute("game", "batchTransferAndBurn", [addrs[3], addrs[4], 500, 100])
+    check(r.get("status") == 1, "batchTransferAndBurn")
 
     # ═══ Results ═══
     total = PASS + FAIL
