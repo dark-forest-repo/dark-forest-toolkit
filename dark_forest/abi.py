@@ -46,6 +46,19 @@ DARK_FOREST_ABI = [
      "inputs":[],"outputs":[]},
     {"name":"withdrawFees","type":"function","stateMutability":"nonpayable",
      "inputs":[],"outputs":[]},
+    {"name":"withdrawFeesTo","type":"function","stateMutability":"nonpayable",
+     "inputs":[],"outputs":[]},
+    {"name":"setFeeRecipient","type":"function","stateMutability":"nonpayable",
+     "inputs":[{"name":"_feeRecipient","type":"address"}],"outputs":[]},
+    {"name":"renounceOwnership","type":"function","stateMutability":"nonpayable",
+     "inputs":[],"outputs":[]},
+    {"name":"batchTransferAndBurn","type":"function","stateMutability":"nonpayable",
+     "inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},
+              {"name":"transferAmount","type":"uint256"},{"name":"burnAmount","type":"uint256"}],"outputs":[]},
+    {"name":"getCurrentPosition","type":"function","stateMutability":"view",
+     "inputs":[{"name":"player","type":"address"}],
+     "outputs":[{"components":[{"name":"x","type":"int256"},{"name":"y","type":"int256"},{"name":"z","type":"int256"}],"name":"pos","type":"tuple"},
+               {"name":"isMoving","type":"bool"},{"name":"eta","type":"uint256"}]},
 
     # -- view --
     {"name":"getEntryFee","type":"function","stateMutability":"view",
@@ -93,11 +106,7 @@ DARK_FOREST_ABI = [
          {"name":"shieldDamage","type":"uint256"},{"name":"healthDamage","type":"uint256"},
          {"name":"stolenEnergy","type":"uint256"},{"name":"downgradedSystem","type":"string"},
          {"name":"attackerWon","type":"bool"}
-     ],"type":"array"}]},
-    {"name":"getCurrentPosition","type":"function","stateMutability":"view",
-     "inputs":[{"name":"player","type":"address"}],
-     "outputs":[{"components":[{"name":"x","type":"int256"},{"name":"y","type":"int256"},{"name":"z","type":"int256"}],"name":"pos","type":"tuple"},
-              {"name":"isMoving","type":"bool"},{"name":"eta","type":"uint256"}]},
+     ],"type":"tuple[]"}]},
     {"name":"isInRange","type":"function","stateMutability":"view",
      "inputs":[{"name":"scanner","type":"address"},{"name":"target","type":"address"}],"outputs":[{"name":"","type":"bool"}]},
     {"name":"getDistance","type":"function","stateMutability":"view",
@@ -112,6 +121,30 @@ DARK_FOREST_ABI = [
      "inputs":[{"name":"","type":"address"}],"outputs":[{"name":"","type":"uint256"}]},
     {"name":"referralCount","type":"function","stateMutability":"view",
      "inputs":[{"name":"","type":"address"}],"outputs":[{"name":"","type":"uint256"}]},
+    {"name":"getCivilizations","type":"function","stateMutability":"view",
+     "inputs":[{"name":"players","type":"address[]"}],
+     "outputs":[{"components":[
+         {"name":"name","type":"string"},{"name":"location","type":"tuple","components":[
+             {"name":"x","type":"int256"},{"name":"y","type":"int256"},{"name":"z","type":"int256"}]},
+         {"name":"energy","type":"uint256"},{"name":"health","type":"uint256"},
+         {"name":"energyCollectorLv","type":"uint256"},{"name":"weaponLv","type":"uint256"},
+         {"name":"radarLv","type":"uint256"},{"name":"shieldLv","type":"uint256"},{"name":"engineLv","type":"uint256"},
+         {"name":"scanRange","type":"uint256"},{"name":"lastUpdateTime","type":"uint256"},
+         {"name":"exists","type":"bool"},{"name":"isRuins","type":"bool"},{"name":"ruinsTimestamp","type":"uint256"}
+     ],"type":"tuple[]"}]},
+    {"name":"getSimpleStatuses","type":"function","stateMutability":"view",
+     "inputs":[{"name":"players","type":"address[]"}],
+     "outputs":[{"components":[
+         {"name":"player","type":"address"},{"name":"energy","type":"uint256"},{"name":"health","type":"uint256"},
+         {"name":"collectorLv","type":"uint256"},{"name":"weaponLv","type":"uint256"},
+         {"name":"shieldLv","type":"uint256"},{"name":"radarLv","type":"uint256"},{"name":"engineLv","type":"uint256"},
+         {"name":"shieldHP","type":"uint256"},{"name":"shieldMax","type":"uint256"},
+         {"name":"exists","type":"bool"},{"name":"isRuins","type":"bool"}
+     ],"type":"tuple[]"}]},
+    {"name":"getPositions","type":"function","stateMutability":"view",
+     "inputs":[{"name":"players","type":"address[]"}],
+     "outputs":[{"components":[{"name":"x","type":"int256"},{"name":"y","type":"int256"},{"name":"z","type":"int256"}],"type":"tuple[]"},
+                {"name":"moving","type":"bool[]"},{"name":"eta","type":"uint256[]"}]},
 ]
 
 # ==============================
@@ -123,6 +156,14 @@ ERC20_ABI = [
      "inputs":[{"name":"","type":"address"}],"outputs":[{"name":"","type":"uint256"}]},
     {"name":"approve","type":"function","stateMutability":"nonpayable",
      "inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]},
+    {"name":"transfer","type":"function","stateMutability":"nonpayable",
+     "inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]},
+    {"name":"transferFrom","type":"function","stateMutability":"nonpayable",
+     "inputs":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]},
+    {"name":"burn","type":"function","stateMutability":"nonpayable",
+     "inputs":[{"name":"amount","type":"uint256"}],"outputs":[]},
+    {"name":"burnFrom","type":"function","stateMutability":"nonpayable",
+     "inputs":[{"name":"from","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[]},
     {"name":"totalSupply","type":"function","stateMutability":"view","inputs":[],"outputs":[{"name":"","type":"uint256"}]},
     {"name":"owner","type":"function","stateMutability":"view","inputs":[],"outputs":[{"name":"","type":"address"}]},
 ]
@@ -150,7 +191,7 @@ MARKET_ABI = [
      "outputs":[{"components":[
          {"name":"seller","type":"address"},{"name":"energyAmount","type":"uint256"},
          {"name":"dftPrice","type":"uint256"},{"name":"active","type":"bool"}
-     ],"type":"array"}]},
+     ],"type":"tuple[]"}]},
     {"name":"createOrder","type":"function","stateMutability":"nonpayable",
      "inputs":[{"name":"energyAmount","type":"uint256"},{"name":"dftPrice","type":"uint256"}],"outputs":[]},
     {"name":"fillOrder","type":"function","stateMutability":"nonpayable",

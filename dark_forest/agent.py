@@ -170,18 +170,32 @@ class DarkForestAgent:
                 "value": hex(value),
             })
         elif self._signing_mode == "local":
+            nonce = self.w3.eth.get_transaction_count(self.address)
+            gas_price = int(self.w3.eth.gas_price * self.gas_multiplier)
             tx = c.functions[func](*args).build_transaction({
                 "from": self.address,
-                "nonce": self.w3.eth.get_transaction_count(self.address),
+                "nonce": nonce,
                 "gas": self.gas_limit,
-                "gasPrice": int(self.w3.eth.gas_price * self.gas_multiplier),
+                "gasPrice": gas_price,
                 "value": value,
             })
             signed = self._local_account.sign_transaction(tx)
             tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
             if receipt["status"] != 1:
-                raise RuntimeError(f"Transaction failed: {tx_hash.hex()}")
+                # Decode revert from the failed tx
+                try:
+                    # Replay as call at the same block to get revert reason
+                    replay = {"from": self.address, "to": c.address,
+                              "data": data, "value": value,
+                              "gas": self.gas_limit, "gasPrice": gas_price}
+                    self.w3.eth.call(replay, receipt["blockNumber"])
+                except Exception as replay_err:
+                    reason = _decode_revert(replay_err)
+                raise RuntimeError(
+                    f"execute({contract}.{func}) FAILED: {reason if 'reason' in dir() else 'unknown'}"
+                    f" | tx: {tx_hash.hex()} | to: {c.address} | value: {value}"
+                )
             return {
                 "tx_hash": tx_hash.hex(),
                 "block_number": receipt["blockNumber"],
@@ -507,3 +521,62 @@ class DarkForestAgent:
             "isMoving": pos_by.get(s["player"], {}).get("isMoving"),
             "etaSeconds": pos_by.get(s["player"], {}).get("etaSeconds"),
         } for s in status_list]
+
+
+def _decode_revert(err: Exception) -> str:
+    """Extract human-readable revert reason from a web3 error."""
+    import re
+    msg = str(err)
+    # Try to find known selector anywhere in the error data/msg
+    known_errors = {
+        "a7048f8a": "E_AlreadyCiv — player already has a civilization",
+        "a0480074": "E_AlreadyClaimed — already claimed daily DFT",
+        "c405abc2": "E_AlreadyReferred — already referred someone",
+        "03995ba4": "E_AlreadyThere — already at target position",
+        "f3330160": "E_CivNotFound — player has no civilization",
+        "6008e593": "E_DurabilityFull — durability already at maximum",
+        "91be586b": "E_EngineWorn — engine durability too low",
+        "18ae77f2": "E_InvalidCiv — civ doesn't exist or is ruins",
+        "b7fb814d": "E_InvalidName — name empty or >32 chars",
+        "3f1e0214": "E_InvalidReferrer — referrer is invalid",
+        "6e555fb6": "E_InvalidSystem — sysId must be 0-4",
+        "52ffd285": "E_JumpCooldown — jump on cooldown, wait",
+        "a8e490e0": "E_LowAllowance — insufficient energy allowance",
+        "d7c125f1": "E_LowEnergy — not enough energy (collect first!)",
+        "284fcaec": "E_NoActivePlayers — no active players",
+        "e82d2667": "E_NoPendingEnergy — no pending energy to claim",
+        "26442708": "E_NotInAlliance — not in this alliance",
+        "6561c075": "E_NotOwner — caller is not owner",
+        "c6999c0f": "E_NotRuins — civ is not ruins",
+        "ddfa899a": "E_RadarTooLow — radar level insufficient",
+        "5a7c4599": "E_RateLimited — attack tokens not ready yet, wait",
+        "5677f706": "E_SelfReferral — can't refer yourself",
+        "33b0f462": "E_ShareTooSmall — daily DFT share too small",
+        "19537cec": "E_ShieldFull — shield already at max",
+        "d9cda70d": "E_TargetNotScanned — target not in scan range",
+        "a0c6d2c5": "E_TargetShieldFull — target shield at max",
+        "f8b1cad9": "E_TooFar — distance exceeds scan range",
+        "4c91779c": "E_UseCreateCiv — sent ETH directly, use createCivilization",
+        "3ab1dc9d": "E_WithdrawFailed — fee withdrawal failed",
+        "cb323ae7": "E_WrongAlliance — wrong alliance",
+        "44edeb18": "E_WrongFee — msg.value < entry fee",
+        "06285e7a": "E_ZeroTotal — transfer+burn amounts are both zero",
+        "fb8f41b2": "ERC20InsufficientAllowance — approve DFT for proxy first",
+        "e450d38c": "ERC20InsufficientBalance — not enough DFT tokens",
+    }
+
+    # Check raw string for selectors
+    for sig, desc in known_errors.items():
+        if sig in msg.lower():
+            return desc
+
+    # Check the exception's data attribute (web3 ContractCustomError)
+    raw_data = getattr(err, "data", None)
+    if raw_data:
+        s = str(raw_data).lower()
+        for sig, desc in known_errors.items():
+            if sig in s:
+                return desc + f" [{s}]"
+
+    # Fallback: return the error as-is truncated
+    return msg[:150]
