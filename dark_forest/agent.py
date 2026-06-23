@@ -229,6 +229,14 @@ class DarkForestAgent:
         fn = getattr(c.functions, func)
         return fn(*args).call()
 
+    def batch_execute(self, calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Execute multiple transactions sequentially.
+
+        Each call: {"contract":"game","func":"attack","args":[...],"value":0}
+        """
+        return [self.execute(c.get("contract","game"), c["func"],
+                c.get("args",[]), value=c.get("value",0)) for c in calls]
+
     # ══════════════════════════════════════════════
     # Signer HTTP helpers
     # ══════════════════════════════════════════════
