@@ -676,6 +676,22 @@ def main():
         sys.exit(1)
 
     # ── warn about DF_KEYSTORE_PASS ──
+    # ── disclaimer ──
+    print(file=sys.stderr)
+    print("╔════════════════════════════════════════════════════════════╗", file=sys.stderr)
+    print("║  ⚠️  DISCLAIMER                                         ║", file=sys.stderr)
+    print("║                                                        ║", file=sys.stderr)
+    print("║  This software is provided 'as is' without warranty.    ║", file=sys.stderr)
+    print("║  You must understand its source code before using it.   ║", file=sys.stderr)
+    print("║  No runtime environment is 100% secure.                 ║", file=sys.stderr)
+    print("║  Only use with funds you are willing to lose entirely.  ║", file=sys.stderr)
+    print("║  Blockchain transactions are irreversible.              ║", file=sys.stderr)
+    print("║  The developers assume NO liability for any losses.     ║", file=sys.stderr)
+    print("║                                                        ║", file=sys.stderr)
+    print("║  By continuing, you accept these terms.                 ║", file=sys.stderr)
+    print("╚════════════════════════════════════════════════════════════╝", file=sys.stderr)
+    print(file=sys.stderr)
+
     if os.environ.get("DF_KEYSTORE_PASS"):
         print("⚠️  WARNING: DF_KEYSTORE_PASS env var is set.", file=sys.stderr)
         print("   Other processes on this machine can read it via /proc.", file=sys.stderr)

@@ -2,6 +2,53 @@
 
 On-chain MMO game: Python agent, CLI, encrypted keystore, and secure remote signing proxy.
 
+> ## ⚠️ DISCLAIMER
+>
+> **This software is provided "as is", without warranty of any kind, express or implied.**
+>
+> ### 1. Understand Before You Use
+> Do not use this software unless you fully understand its source code, mechanisms, and
+> security model. You are responsible for reading, compiling, and verifying every line of
+> code that handles your private keys, transaction signing, and fund movements.
+>
+> ### 2. No Perfect Security
+> No software, tool, or runtime environment is 100% secure. The security features in this
+> project (encrypted keystore, TLS, token auth, rate limiting, etc.) reduce risk but do
+> **not** eliminate it. Risks include but are not limited to:
+>   - Compromise of the machine where the signer or keystore runs
+>   - Memory inspection by malicious processes with sufficient privileges
+>   - Side-channel attacks, supply-chain attacks, or zero-day vulnerabilities in
+>     dependencies (Python, OpenSSL, cryptography libraries, OS kernel, etc.)
+>   - Social engineering, phishing, or token theft
+>   - Misconfiguration by the user (e.g., binding to `0.0.0.0` without TLS,
+>     using `--allow-any-target`, setting weak passwords)
+>
+> ### 3. Fund Safety
+> **Only use this software with funds you are willing to lose entirely.** Blockchain
+> transactions are irreversible. A single misconfiguration, bug, or security breach can
+> result in the total loss of all assets controlled by the keys managed through this
+> software. The developers, contributors, and affiliated parties assume **no liability**
+> for any direct, indirect, incidental, or consequential losses.
+>
+> ### 4. Smart Contract Risk
+> This tool interacts with smart contracts on blockchain networks. Smart contracts may
+> contain bugs, be subject to exploits, or behave in unexpected ways. This tool does
+> not mitigate those risks.
+>
+> ### 5. Audit Scope
+> Third-party security audits (if any) are snapshots in time and do not guarantee the
+> absence of vulnerabilities. Audits may not cover all dependencies, deployment
+> configurations, or future code changes.
+>
+> ### 6. No Financial Advice
+> Nothing in this software or its documentation constitutes financial, legal, or
+> investment advice. You alone bear responsibility for your decisions.
+>
+> **By using this software, you acknowledge that you have read, understood, and
+> agreed to these terms. If you do not agree, do not use this software.**
+>
+> ---
+
 ## Architecture
 
 ```
