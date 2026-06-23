@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "dark-forest"
+version = "2.1.0"
+description = "Dark Forest — on-chain MMO game agent, CLI, and secure signing proxy"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "web3>=6.0",
+    "cryptography>=41.0",
+    "pycryptodome>=3.19",
+]
+
+[project.scripts]
+df = "dark_forest.cli:main"
+df-signer = "dark_forest.signer_server:main"
+df-ks = "dark_forest.cli:main_ks"
+
+[tool.setuptools.packages.find]
+include = ["dark_forest*"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
