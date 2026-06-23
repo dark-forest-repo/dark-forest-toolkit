@@ -77,7 +77,9 @@ class Signer:
                  rate_limit: int = RATE_LIMIT_MAX,
                  confirm_threshold: int = VALUE_CONFIRM_THRESHOLD,
                  allow_targets: list[str] | None = None,
-                 log_file: str | None = None):
+                 log_file: str | None = None,
+                 max_retries: int = 3,
+                 retry_delay: float = 1.0):
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
         if not self.w3.is_connected():
@@ -90,12 +92,16 @@ class Signer:
         self.lock_timeout = lock_timeout
         self.confirm_threshold = confirm_threshold
         self._allow_targets = [a.lower() for a in (allow_targets or [])]
-        self._allow_any = len(self._allow_targets) == 0  # if none specified, allow any
+        self._allow_any = len(self._allow_targets) == 0
         self._log_file = log_file
+
+        # ── retry config ──
+        self._max_retries = max_retries
+        self._retry_delay = retry_delay
 
         # ── rate limiter (sliding window) ──
         self._rate_limit_max = rate_limit
-        self._rate_window: list[float] = []  # timestamps of recent requests
+        self._rate_window: list[float] = []
 
         # ── state ──
         self.ks: KeyStore | None = None
@@ -104,8 +110,12 @@ class Signer:
         self.address: str | None = None
         self._last_activity: float = time.time()
 
+        # ── TLS cert expiry ──
+        self._tls_cert_path: str | None = None
+        self._tls_cert_expiry_days: int | None = None
+
         # ── API token ──
-        self.api_token: str = secrets.token_hex(32)  # 64-char hex
+        self.api_token: str = secrets.token_hex(32)
         # Do NOT log the token to log file; only print to stdout once on startup
 
     # ── activity / lock ──
@@ -202,17 +212,44 @@ class Signer:
         self._audit("account_loaded", {"label": label_or_addr, "address": self.address})
         return self.address
 
-    # ── sign & send ──
+    # ── TLS cert check (P1#4) ──
+
+    def set_tls_cert(self, path: str) -> None:
+        """Register TLS cert path and check expiry."""
+        self._tls_cert_path = path
+        try:
+            import ssl, datetime
+            cert = ssl._ssl._test_decode_cert(path)
+            not_after_str = cert.get("notAfter", "")
+            if not_after_str:
+                # Parse ASN.1 UTCTIME format: "YYMMDDHHMMSSZ"
+                try:
+                    expiry = datetime.datetime.strptime(not_after_str, "%y%m%d%H%M%SZ")
+                except ValueError:
+                    expiry = datetime.datetime.strptime(not_after_str, "%Y%m%d%H%M%SZ")
+                days_left = (expiry - datetime.datetime.now()).days
+                self._tls_cert_expiry_days = days_left
+        except Exception:
+            self._tls_cert_expiry_days = None
+
+    def check_tls_expiry(self) -> str | None:
+        """Return warning string if TLS cert is expiring soon, else None."""
+        if self._tls_cert_expiry_days is None:
+            return None
+        if self._tls_cert_expiry_days < 0:
+            return "TLS certificate has EXPIRED"
+        if self._tls_cert_expiry_days < 7:
+            return f"TLS certificate expires in {self._tls_cert_expiry_days} days"
+        if self._tls_cert_expiry_days < 30:
+            return f"TLS certificate expires in {self._tls_cert_expiry_days} days"
+        return None
 
     def sign_and_send(self, to_addr: str, data_hex: str, value_wei: int = 0,
-                      gas_limit: int | None = None) -> dict:
+                      gas_limit: int | None = None, func_name: str = "") -> dict:
         """Build, sign, broadcast a transaction and return receipt.
 
-        Security checks (in order):
-            1. Auto-lock check
-            2. Rate limit check
-            3. Target allowlist check
-            4. Sign and broadcast
+        Retries on network errors with exponential backoff (max 3 retries).
+        The *func_name* is logged for audit but not used for signing.
         """
         self.check_lock()
         self.check_rate_limit()
@@ -235,7 +272,22 @@ class Signer:
             tx["data"] = data_hex
 
         signed = self._local_account.sign_transaction(tx)
-        tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+        # Broadcast with retries
+        last_err = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+                break
+            except Exception as e:
+                last_err = e
+                if attempt < self._max_retries:
+                    delay = self._retry_delay * (2 ** attempt)
+                    time.sleep(delay)
+                    continue
+                raise RuntimeError(
+                    f"send_raw_transaction failed after {self._max_retries + 1} attempts: {e}"
+                ) from last_err
+
         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
 
         self._touch()
@@ -246,6 +298,7 @@ class Signer:
             "status": receipt["status"],
             "gas_used": receipt["gasUsed"],
             "block": receipt["blockNumber"],
+            "func": func_name or "unknown",  # P1#7: decoded function name
         })
 
         return {
@@ -253,6 +306,7 @@ class Signer:
             "block_number": receipt["blockNumber"],
             "status": receipt["status"],
             "gas_used": receipt["gasUsed"],
+            "func": func_name or "unknown",
         }
 
 
@@ -335,7 +389,7 @@ class SignerHandler(http.server.BaseHTTPRequestHandler):
 
     # ── auth ──
 
-    def _require_auth(self) -> bool:
+    def _require_auth(self, path: str | None = None) -> bool:
         """Check Authorization header against the signer's API token.
 
         Logs failed attempts (important for attack detection).
@@ -345,10 +399,11 @@ class SignerHandler(http.server.BaseHTTPRequestHandler):
             self._send_response(503, {"error": "signer not initialised"})
             return False
 
-        # GET /health is public (no token needed for health checks)
+        # GET /health is public — show basic info; detailed info requires token
         parsed = urlparse(self.path)
         if self.command == "GET" and parsed.path == "/health":
-            return True
+            # No token = basic health only. Token = detailed health.
+            return True  # always allow, response differs by auth
 
         auth = self.headers.get("Authorization", "")
         expected = f"Bearer {shared_signer.api_token}"
@@ -444,14 +499,24 @@ class SignerHandler(http.server.BaseHTTPRequestHandler):
             return
 
         if path == "/health":
-            self._send_response(200, {
+            # Check if request has valid auth for detailed response
+            auth_header = self.headers.get("Authorization", "")
+            is_authenticated = (auth_header == f"Bearer {shared_signer.api_token}")
+            body = {
                 "ok": True,
                 "unlocked": signer.ks is not None,
                 "locked": signer.is_locked,
-                "address": signer.address,
-                "account": signer._account_label,
-                "rate_limit_remaining": max(0, signer._rate_limit_max - len(signer._rate_window)),
-            })
+            }
+            if is_authenticated:
+                body.update({
+                    "address": signer.address,
+                    "account": signer._account_label,
+                    "rate_limit_remaining": max(0, signer._rate_limit_max - len(signer._rate_window)),
+                })
+                tls_warn = signer.check_tls_expiry()
+                if tls_warn:
+                    body["tls_warning"] = tls_warn
+            self._send_response(200, body)
 
         elif path == "/address":
             if not signer.address:
@@ -526,6 +591,7 @@ class SignerHandler(http.server.BaseHTTPRequestHandler):
             data = body.get("data", "0x") if body else "0x"
             value = int(body.get("value", 0)) if body else 0
             gas = body.get("gas") if body else None
+            func = body.get("func", "") if body else ""  # P1#7
 
             if not to:
                 self._send_response(400, {"event": "sign_rejected", "error": "missing 'to'", "to": to})
@@ -551,7 +617,7 @@ class SignerHandler(http.server.BaseHTTPRequestHandler):
                     return
 
             try:
-                result = signer.sign_and_send(to, data, value, gas)
+                result = signer.sign_and_send(to, data, value, gas, func_name=func)
                 self._send_response(200, result)
             except RuntimeError as e:  # security checks (lock, rate limit, allowlist)
                 self._send_response(429, {
@@ -634,6 +700,10 @@ def main():
                         help=f"Max transactions per minute (default: {RATE_LIMIT_MAX}, 0=unlimited)")
     parser.add_argument("--confirm-threshold", type=int, default=VALUE_CONFIRM_THRESHOLD,
                         help=f"Value threshold in wei for confirmation prompt (default: 0.1 ETH)")
+    parser.add_argument("--max-retries", type=int, default=3,
+                        help="Max retry attempts for failed broadcasts (default: 3)")
+    parser.add_argument("--retry-delay", type=float, default=1.0,
+                        help="Initial retry delay in seconds, doubles each attempt (default: 1.0)")
     parser.add_argument("--gas-multiplier", type=float, default=1.1)
     parser.add_argument("--gas-limit", type=int, default=2_000_000)
     parser.add_argument("--log-file", default=None,
@@ -665,6 +735,8 @@ def main():
             confirm_threshold=args.confirm_threshold,
             allow_targets=allow_targets,
             log_file=args.log_file,
+            max_retries=args.max_retries,
+            retry_delay=args.retry_delay,
         )
         if args.gas_limit:
             signer.gas_limit = args.gas_limit
@@ -749,6 +821,11 @@ def main():
         ssl_context.load_cert_chain(args.tls_cert, args.tls_key)
         server.socket = ssl_context.wrap_socket(server.socket, server_side=True)
         schema = "https"
+        # Check TLS expiry
+        signer.set_tls_cert(args.tls_cert)
+        tls_warn = signer.check_tls_expiry()
+        if tls_warn:
+            print(f"⚠️  TLS: {tls_warn}", file=sys.stderr)
 
     print(f"✔ Signer listening on {schema}://{bind_addr}:{args.port}")
     print(f"  Press Ctrl+C to stop")
