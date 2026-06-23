@@ -199,7 +199,7 @@ MARKET_ABI = [
     {"name":"cancelOrder","type":"function","stateMutability":"nonpayable",
      "inputs":[{"name":"orderId","type":"uint256"}],"outputs":[]},
     {"name":"withdrawDftFees","type":"function","stateMutability":"nonpayable",
-     "inputs":[{"name":"to","type":"address"}],"outputs":[]},
+      "inputs":[],"outputs":[]},
 ]
 
 # ==============================
