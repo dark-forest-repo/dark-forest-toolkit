@@ -30,7 +30,7 @@ DUR_BASE       = 86400
 DUR_PER_LV     = 86400
 DURABILITY_MAX = 86400  # 每天最多采集 1 天耐力
 
-MAX_LV = 50
+MAX_LV = 1000
 
 
 def up_cost(system: str, lv: int) -> int:
