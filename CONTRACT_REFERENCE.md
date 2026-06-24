@@ -8,7 +8,7 @@
 |----------|--------|:------:|:---:|:---:|:---:|-------|
 | `approveEnergy` | address, uint256 | 0 | 0 | 0 | ~30k | sets allowance |
 | `assistShieldRepair` | address, uint256 | cost | 0 | 0 | ~80k | alliance member only |
-| `attack` | address | 3000 (lv1) | 0 | 0 | ~250k | needs token + range |
+| `attack` | address | 2820 (lv1) | 0 | 0 | ~250k | needs token + range |
 | `batchTransferAndBurn` | address, address, uint256, uint256 | 0 | 0 | 0 | ~80k | need allowance |
 | `cancelMove` |  | 0 | 0 | 0 | ~30k |  |
 | `claimCombatEnergy` |  | 0 | 0 | 0 | ~40k | E_NoPendingEnergy if none |

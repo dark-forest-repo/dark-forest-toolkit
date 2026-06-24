@@ -85,7 +85,9 @@ fee(day) = ENTRY_FEE_MIN + (ENTRY_FEE_MAX - ENTRY_FEE_MIN) × min(day, 365) / 36
 
 
 ```
-攻击能量 = ATTACK_ENERGY_BASE(1,000) + ATTACK_ENERGY_PER_LV(2,000) × weaponLv
+攻击能量 = 1,000 + atk × 2
+        = 1,000 + (900 + 10×lv²) × 2
+        = 2,800 + 20×lv²
 ```
 
 | 武器等级 | 攻击消耗 | 攻击力 |

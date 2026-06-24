@@ -21,7 +21,7 @@ UPGRADE_COST_PARAMS = {
     'weapon': (10000, 8), 'shield': (7000, 6), 'radar': (8000, 7),
     'collector': (5000, 5), 'engine': (6000, 5),
 }
-ATTACK_E_BASE, ATTACK_E_PER_LV = 1000, 2000
+ATTACK_E_BASE, ATTACK_E_PER_LV = 1000, 2000  # (simplified) attackCost = 1000 + atk*2; 合约实际公式
 COLLECT_BASE, COLLECT_BONUS = 3, 10
 DUR_BASE, DUR_PER_LV = 86400, 86400
 REPAIR_COST = 1
