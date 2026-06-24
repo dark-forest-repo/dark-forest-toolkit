@@ -60,7 +60,11 @@ def read_abi(contract_name: str, rel_path: str) -> list:
 
 
 def main():
-    output = os.path.join(os.path.dirname(__file__), "abi.py")
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate abi.py from forge artifacts")
+    parser.add_argument("--output", "-o", default=None, help="Output file path (default: dark_forest/abi.py)")
+    args = parser.parse_args()
+    output = args.output or os.path.join(os.path.dirname(__file__), "abi.py")
     
     lines = ['"""ABI definitions — auto-generated from forge build artifacts.',
              '',

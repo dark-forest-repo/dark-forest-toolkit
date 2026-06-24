@@ -129,7 +129,7 @@ class KeyStore:
     def __init__(self, path: str | None = None):
         self.path = path or DEFAULT_KEYSTORE_PATH
         self._accounts: list[dict] | None = None  # None = locked
-        self._cache_key: bytes | None = None       # derived AES key (not password!)
+        self._cache_key: bytearray | None = None  # mutable for zeroing on lock()
 
     # ── file ops ──
 

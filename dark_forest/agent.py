@@ -81,7 +81,10 @@ class DarkForestAgent:
     ):
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-        if not self.w3.is_connected():
+        # Verify connectivity with a real RPC call (is_connected deprecated in web3 v6)
+        try:
+            self.w3.eth.chain_id
+        except Exception:
             raise ConnectionError(f"Cannot connect to {rpc_url}")
 
         # ── resolve signing mode ──
@@ -502,6 +505,9 @@ class DarkForestAgent:
 
     def get_order_count(self) -> int:
         return self.read("market", "getOrderCount")
+
+    def get_active_orders(self, offset: int = 0, limit: int = 10) -> list[Any]:
+        return self.read("market", "getActiveOrders", [offset, limit])
 
     def get_player_alliance(self, player: str) -> bytes:
         return self.read("alliance", "playerAlliance", [player])

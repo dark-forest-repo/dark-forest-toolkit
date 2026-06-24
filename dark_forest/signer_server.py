@@ -82,7 +82,9 @@ class Signer:
                  retry_delay: float = 1.0):
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
         self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-        if not self.w3.is_connected():
+        try:
+            self.w3.eth.chain_id
+        except Exception:
             raise ConnectionError(f"Cannot connect to {rpc_url}")
         self.rpc_url = rpc_url
         self.gas_multiplier = gas_multiplier
@@ -92,7 +94,8 @@ class Signer:
         self.lock_timeout = lock_timeout
         self.confirm_threshold = confirm_threshold
         self._allow_targets = [a.lower() for a in (allow_targets or [])]
-        self._allow_any = len(self._allow_targets) == 0
+        # Default: require at least one target. Explicit --allow-any-target to disable.
+        self._allow_any = False
         self._log_file = log_file
 
         # ── retry config ──
