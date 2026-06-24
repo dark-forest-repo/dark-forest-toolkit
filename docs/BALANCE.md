@@ -1,157 +1,228 @@
 # Game Balance Reference
 
-## Entry Fee
+> 最后更新: 2026-06-24 · 参数版本: A×10 · 最高等级: 1,000
+> 所有数值直接从 `DarkForestStorage.sol` 常量提取。
 
-| Constant | Value | Formula |
-|----------|-------|---------|
-| `ENTRY_FEE_MIN` | 0.01 ETH | Day 0 |
-| `ENTRY_FEE_MAX` | 0.05 ETH | Day 365 |
-| `FEE_RAMP_UP_TIME` | 365 days | linear |
+---
 
-```
-fee(day) = 0.01 + 0.04 * min(day, 365) / 365
-```
+## 1. DFT Tokenomics
 
-## Civilization
+| 参数 | 值 |
+|------|-----|
+| `TOTAL_SUPPLY` | 4,206,900,000,000 (4.2069T / 42,069亿) |
+| `INITIAL_MINT` | 1,000,000 (给部署者, 100万) |
+| `DAILY_DFT_EMISSION` | 1,152,575,342 /天 |
+| `EMISSION_DAYS` | 3,650 (≈10年) |
+| `TOKEN_NAME` | DarkForest |
+| `TOKEN_SYMBOL` | DFT |
+| `TOKEN_DECIMALS` | 18 |
 
-| Constant | Value |
-|----------|-------|
-| `INITIAL_ENERGY` | 2000 |
-| `INITIAL_HEALTH` | 1000 |
-| `INITIAL_SCAN_RANGE` | 1000 |
-| `MAX_HEALTH` | 20,000 |
-| `REFERRAL_ENERGY_REWARD` | 150 per side |
+---
 
-## Energy Collection
+## 2. 入场费
 
-| Constant | Value |
-|----------|-------|
-| `BASE_COLLECT` | 3/sec |
-| `COLLECT_BONUS` | 10 |
-| `DURABILITY_BASE` | 86,400 sec (1 day) |
-| `DURABILITY_PER_LV` | 86,400 sec (1 day) |
-| `REPAIR_COST_PER_SEC` | 1 energy per sec |
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `ENTRY_FEE_MIN` | 0.01 ETH | 最低入场费(第0天) |
+| `ENTRY_FEE_MAX` | 0.05 ETH | 最高入场费(第365天) |
+| `FEE_RAMP_UP_TIME` | 365 days | 线性增长周期 |
 
 ```
-collect_rate(lv, refs) = base * (1000 + refs * 2) / 1000
-  base = 3 (lv ≤ 1)  or  3 + 10 * sqrt(lv - 1)
+fee(day) = ENTRY_FEE_MIN + (ENTRY_FEE_MAX - ENTRY_FEE_MIN) × min(day, 365) / 365
 ```
 
-## Combat
+---
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `ATK_BASE` | 900 | Base attack power |
-| `ATK_RATE` | 10 | Scaling: `900 + 10*lv²` |
-| `DEF_BASE` | 540 | Base defense |
-| `DEF_RATE` | 6 | Scaling: `540 + 6*lv²` |
-| `ATTACK_ENERGY_BASE` | 1000 | Base energy cost |
-| `ATTACK_ENERGY_PER_LV` | 2000 | Per weapon level |
-| `PLUNDER_RATIO` | 3000 (30%) | Energy stolen |
-| `DESTRUCTION_RATE` | 4000 (40%) | Health threshold for kill |
-| `DOWNGRADE_DIVISOR` | 10 | `lv / 10` on defeat |
-| `SHIELD_DMG_BONUS` | 200 | Bonus damage vs shields |
-| `LAST_HIT_BONUS_PERCENT` | 50 | Last hit damage bonus |
+## 3. 文明属性
+
+| 属性 | 初始值 | 最大可能(10年) |
+|------|:------:|:--------------:|
+| 能量 (Energy) | 2,000 | 无上限 |
+| 血量 (Health) | 1,000 | 20,000 |
+| 护盾HP (Shield HP) | 3,615 | ~100,000+ |
+| 扫描范围 (Scan Range) | 1,000 | 100,000+ |
+| 采集速度 | 3/sec | ~50/sec |
+
+---
+
+## 4. 升级成本（A×10）
+
+公式: `DFT成本 = A × lv × (lv + B) / 100` · 能量成本 = DFT / 2
+
+| 系统 | A (UP_A) | B (UP_B) | **Lv1→2** | **Lv10→11** | **Lv50→51** | **Lv100→101** |
+|:----:|:--------:|:--------:|:---------:|:-----------:|:-----------:|:-------------:|
+| 采集 | 5,000 | 5 | 300 DFT | 7,500 DFT | 137,500 DFT | 525,000 DFT |
+| 武器 | 10,000 | 8 | 900 DFT | 18,000 DFT | 290,000 DFT | 1,080,000 DFT |
+| 护盾 | 7,000 | 6 | 490 DFT | 11,200 DFT | 196,000 DFT | 742,000 DFT |
+| 雷达 | 8,000 | 7 | 640 DFT | 13,600 DFT | 228,000 DFT | 856,000 DFT |
+| 引擎 | 6,000 | 5 | 360 DFT | 9,000 DFT | 165,000 DFT | 630,000 DFT |
+
+### 各阶段总费用（全系统累计）
+
+| 阶段 | 总 DFT | 占总供应 | 参考 |
+|:----:|:------:|:--------:|------|
+| Lv1→10 | ~152,000 | <0.01% | 新手期 |
+| Lv1→50 | ~17,400,000 | <0.01% | 中期目标 |
+| Lv1→100 | ~1.3亿 | <0.01% | 重度玩家 |
+| Lv1→300 | ~33亿 | 0.08% | 顶级玩家 |
+| Lv1→500 | ~152亿 | 0.36% | 极致追求 |
+| Lv1→1,000 | ~1,209亿 | **2.88%** | 理论极限 |
+
+---
+
+## 5. 战斗
+
+### 属性公式
 
 ```
-attack_cost = 1000 + 2000 * weapon_lv
-attack_power = 900 + 10 * weapon_lv²
-defense = 540 + 6 * shield_lv²
+攻击力(atk)  = ATK_BASE(900) + ATK_RATE(10) × lv²
+防御力(def)  = DEF_BASE(540) + DEF_RATE(6)  × lv²
+护盾HP       = 3600 + 15 × lv²
 ```
 
-### Attack Token Bucket
-
-| Constant | Value |
-|----------|-------|
-| `TOKEN_BASE_MAX` | 3 (at Lv 1) |
-| `TOKEN_MAX_CAP` | 10 |
-| `TOKEN_INTERVAL_MS_BASE` | 300ms |
-| `TOKEN_INTERVAL_REDUCTION` | 10ms/lv |
-| `TOKEN_MIN_INTERVAL` | 1 sec |
-| `TOKEN_BASE_INTERVAL` | 3 sec |
+### 攻击消耗
 
 ```
-interval = max(300 - 10*lv, 100) / 100  seconds
-max_tokens = min(3 + lv/10, 10)
+攻击能量 = ATTACK_ENERGY_BASE(1,000) + ATTACK_ENERGY_PER_LV(2,000) × weaponLv
 ```
 
-## Shield
+| 武器等级 | 攻击消耗 | 攻击力 |
+|:--------:|:--------:|:------:|
+| 1 | 3,000 | 910 |
+| 10 | 21,000 | 1,900 |
+| 20 | 41,000 | 4,900 |
+| 50 | 101,000 | 25,900 |
+| 100 | 201,000 | 100,900 |
 
-| Constant | Value | Formula |
-|----------|-------|---------|
-| `SHIELD_HP_BASE` | 3600 | |
-| `SHIELD_HP_RATE` | 15 | `3600 + 15*lv²` |
-| `REGEN_BASE` | 50 | |
-| `REGEN_RATE` | 1 | `50 + 1*lv²` |
-| `SHIELD_REGEN_ENERGY_RATIO` | 1 | 1 energy → 1 shield HP |
-| `SHIELD_REPAIR_COST` | 2 | energy per point |
+### 对局示例（A×10 经济下实际等级）
 
-## Space Jump
+```
+Lv10 打 Lv1:
+  攻=1,900 vs 防=546 → 盾伤=1,554, 血伤=2,708 → Lv1 秒杀
 
-| Constant | Value | Formula |
-|----------|-------|---------|
-| `JUMP_ENERGY_BASE` | 5000 | |
-| `JUMP_ENERGY_PER_SQRT` | 5000 | `min(5000+5000*√jc, 150000)` |
-| `JUMP_ENERGY_MAX` | 150,000 | |
-| `JUMP_DFT_BASE` | 3000 | |
-| `JUMP_DFT_PER_SQRT` | 3000 | `min(3000+3000*√jc, 100000)` |
-| `JUMP_DFT_MAX` | 100,000 | |
-| `JUMP_COOLDOWN` | 3600s (1 hour) | |
-| `JUMP_TRACKING_RADAR_LV` | 20 | required for tracking jump |
+Lv32 打 Lv10（10年平均玩家 vs 中期玩家）:
+  攻=11,140 vs 防=1,140 → 盾伤=10,200, 血伤=20,000 → Lv10 秒杀
 
-## Upgrades
+Lv50 打 Lv32（顶级 vs 平均）:
+  攻=25,900 vs 防=6,684 → 盾伤=19,416, 血伤=38,432 → Lv32 秒杀
+```
 
-| System | A (UP_A) | B (UP_B) | Cost Formula |
-|--------|:--------:|:--------:|--------------|
-| Collector | 500 | 5 | `500 * lv * (lv+5) / 100` DFT |
-| Weapon | 1000 | 8 | `1000 * lv * (lv+8) / 100` DFT |
-| Shield | 700 | 6 | `700 * lv * (lv+6) / 100` DFT |
-| Radar | 800 | 7 | `800 * lv * (lv+7) / 100` DFT |
-| Engine | 600 | 5 | `600 * lv * (lv+5) / 100` DFT |
+---
 
-Energy cost = DFT cost / 2. Must approve proxy for `burnFrom` first.
+## 6. 能量经济
 
-## Durability (per system)
+### 采集
 
-| System | Base | Per LV | Repair Cost |
-|--------|:----:|:------:|:-----------:|
-| Collector | 86,400 (1d) | 86,400 (1d) | 1 energy/sec |
-| Weapon | 500 | 100 | 2 energy |
-| Shield | 259,200 (3d) | 172,800 (2d) | 2 energy |
-| Engine | 50 | 10 | 3 energy |
+```
+采集速率 = 3 (lv≤1) 或 3 + 10×√(lv−1) (lv≥2)
+每日采集 ≈ 速率 × 86,400 秒
+耐久度 = 86,400 + 86,400 × (collectorLv−1)
+修理成本 = 1 能量/秒
+```
 
-## Engine (Cruise)
+| 采集器等级 | 速率 | 每日能量 | 耐久度 |
+|:----------:|:----:|:--------:|:------:|
+| 1 | 3/s | 259,200 | 1天 |
+| 5 | 23/s | 1,987,200 | 5天 |
+| 10 | 33/s | 2,851,200 | 10天 |
+| 50 | 73/s | 6,307,200 | 50天 |
 
-| Constant | Value | Formula |
-|----------|-------|---------|
-| `ENGINE_SPEED_BASE` | 10 | |
-| `ENGINE_SPEED_PER_LV` | 5 | `10 + 5*(lv-1)` for lv ≥ 2 |
+### 跳跃
 
-## Radar
+```
+能量消耗 = min(5,000 + 5,000×√(n), 150,000)
+DFT消耗  = min(3,000 + 3,000×√(n), 100,000)
+冷却     = 3,600秒 (1小时)
+```
 
-| Constant | Value | Formula |
-|----------|-------|---------|
-| `RADAR_BASE` | 1000 | |
-| `RADAR_LINEAR` | 150 | `1000 + 150*lv + 5*lv²` |
-| `RADAR_QUAD` | 5 | |
+| 跳跃次数 | 能量消耗 | DFT消耗 |
+|:--------:|:--------:|:-------:|
+| 1 | 10,000 | 6,000 |
+| 10 | 20,811 | 12,486 |
+| 50 | 40,355 | 24,213 |
+| 100 | 55,000 | 33,000 |
 
-## Alliance
+---
 
-| Constant | Value |
-|----------|-------|
-| `MAX_ALLIANCE_NAME` | 32 chars |
+## 7. 速度与雷达
+
+| 系统 | 基础值 | 公式 |
+|------|:------:|------|
+| 引擎速度 | 10/h | `lv≤1 ? 10 : 10 + 5×(lv−1)` |
+| 雷达范围 | 1,000 | `1,000 + 150×lv + 5×lv²` |
+
+---
+
+## 8. 护盾
+
+| 常量 | 值 |
+|------|-----|
+| `SHIELD_HP_BASE` | 3,600 |
+| `SHIELD_HP_RATE` | 15 |
+| `SHIELD_REPAIR_COST` | 2 能量/HP |
+| `SHIELD_REGEN_ENERGY_RATIO` | 1 |
+| `REGEN_BASE` | 50 |
+| `REGEN_RATE` | 1 |
+
+---
+
+## 9. 耐久度
+
+| 系统 | 基础 | 每级增量 | 修理单价 |
+|:----:|:----:|:--------:|:--------:|
+| 采集 | 86,400 (1天) | 86,400 (1天) | 1 能量/s |
+| 武器 | 500 | 100 | 2 能量 |
+| 护盾 | 259,200 (3天) | 172,800 (2天) | 2 能量 |
+| 引擎 | 50 | 10 | 3 能量 |
+
+---
+
+## 10. DEX 交易税
+
+| 费用 | 比例 |
+|:----:|:----:|
+| 开发者费 | 1% (DEV_FEE_BPS = 100) |
+| 市场基金 | 1.5% (MARKETING_FEE_BPS = 150) |
+| **总税** | **2.5%** (TOTAL_FEE_BPS = 250) |
+
+---
+
+## 11. 能量市场
+
+| 常量 | 值 |
+|------|-----|
+| `ENERGY_BURN_BPS` | 500 (5%) |
+| `DFT_FEE_BPS` | 100 (1%) |
+
+---
+
+## 12. 联盟
+
+| 常量 | 值 |
+|------|-----|
 | `MAX_MEMBERS` | 100 |
 | `LEAVE_COST_BASE` | 100 DFT |
 | `LEAVE_COST_PER_MEMBER` | 10 DFT |
-| `LEAVE_COOLDOWN` | 24 hours |
+| `LEAVE_COOLDOWN` | 24小时 |
+| `MAX_ALLIANCE_NAME` | 32字符 |
 
-## DFT Token
+---
 
-| Constant | Value |
-|----------|-------|
-| `TOTAL_SUPPLY` | 4,206,900,000,000 |
-| `DAILY_EMISSION` | 1,152,575,342 |
-| `EMISSION_DAYS` | 3650 (~10 years) |
-| `DEV_FEE_BPS` | 100 (1%) |
-| `MARKETING_FEE_BPS` | 150 (1.5%) |
-| `TOTAL_FEE_BPS` | 250 (2.5%) |
+## 13. 成本与收入（50k 玩家 × A×10 × 10年）
+
+| 指标 | 值 |
+|------|-----|
+| 玩家10年总收入 | ~84M DFT |
+| 全满 Lv1,000 费用 | ~1,209亿 DFT (不可能) |
+| 实际可达平均等级 | ~Lv39 (武器~Lv32) |
+| 升级消耗占收入 | ~50% |
+| 销毁率 | ~99%（几乎所有DFT被消耗） |
+
+---
+
+## 14. 版本历史
+
+| 版本 | 日期 | 变更 |
+|:----:|:----:|------|
+| 2.0 | 2026-06-24 | A系数×10, 最高等级→1,000 |
+| 1.0 | 2026-06-01 | 初始版本 |

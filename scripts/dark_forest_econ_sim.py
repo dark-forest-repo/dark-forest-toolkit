@@ -18,11 +18,11 @@ TOTAL_DFT = 4_206_900_000_000
 DAILY_EMISSION = TOTAL_DFT // 3650  # 1,152,575,342
 
 UPGRADE_COST_PARAMS = {
-    'weapon': (1000, 8), 'shield': (700, 6), 'radar': (800, 7),
-    'collector': (500, 5), 'engine': (600, 5),
+    'weapon': (10000, 8), 'shield': (7000, 6), 'radar': (8000, 7),
+    'collector': (5000, 5), 'engine': (6000, 5),
 }
-ATTACK_E_BASE, ATTACK_E_PER_LV = 200, 250
-COLLECT_BASE, COLLECT_BONUS = 10, 10
+ATTACK_E_BASE, ATTACK_E_PER_LV = 1000, 2000
+COLLECT_BASE, COLLECT_BONUS = 3, 10
 DUR_BASE, DUR_PER_LV = 86400, 86400
 REPAIR_COST = 1
 
